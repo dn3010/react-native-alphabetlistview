@@ -27,7 +27,6 @@ export default class SectionList extends Component {
 
   onSectionSelect(sectionId, fromTouch) {
     this.props.onSectionSelect && this.props.onSectionSelect(sectionId);
-
     if (!fromTouch) {
       this.lastSelectedIndex = null;
     }
@@ -39,31 +38,35 @@ export default class SectionList extends Component {
 
   detectAndScrollToSection(e) {
     const ev = e.nativeEvent.touches[0];
-    //var rect = {width:1, height:1, x: ev.locationX, y: ev.locationY};
-    //var rect = [ev.locationX, ev.locationY];
-
-    //UIManager.measureViewsInRect(rect, e.target, noop, (frames) => {
-    //  if (frames.length) {
-    //    var index = frames[0].index;
-    //    if (this.lastSelectedIndex !== index) {
-    //      this.lastSelectedIndex = index;
-    //      this.onSectionSelect(this.props.sections[index], true);
-    //    }
-    //  }
-    //});
-    //UIManager.findSubviewIn(e.target, rect, viewTag => {
-      //this.onSectionSelect(view, true);
-    //})
     const targetY = ev.pageY;
     const { y, width, height } = this.measure;
     const index = (Math.floor(ev.locationY / height));
     if (index >= this.props.sections.length) {
       return;
     }
+    if(this.lastSelectedIndex !== index ){
+      if (this.props.data[this.props.sections[index]] && this.props.data[this.props.sections[index]].length) {
+        this.lastSelectedIndex = index;
+        this.onSectionSelect(this.props.sections[index], true);
+      } else {
+        let i = 0;
+        while (true) {
+          i++
+          if((i <= this.props.sections.length) &&
+            this.props.data[this.props.sections[index+i]] &&
+            this.props.data[this.props.sections[index+i]].length
+          ){
+            return this.onSectionSelect(this.props.sections[index+i], true)
+          }
+          if((index-i >= 0) &&
+            this.props.data[this.props.sections[index-i]] &&
+            this.props.data[this.props.sections[index-i]].length
+          ){
 
-    if (this.lastSelectedIndex !== index && this.props.data[this.props.sections[index]].length) {
-      this.lastSelectedIndex = index;
-      this.onSectionSelect(this.props.sections[index], true);
+            return this.onSectionSelect(this.props.sections[index-i], true)
+          }
+        }
+      }
     }
   }
 
@@ -74,7 +77,6 @@ export default class SectionList extends Component {
     }
     this.measureTimer = setTimeout(() => {
       sectionItem.measure((x, y, width, height, pageX, pageY) => {
-        //console.log([x, y, width, height, pageX, pageY]);
         this.measure = {
           y: pageY,
           width,
@@ -104,7 +106,7 @@ export default class SectionList extends Component {
         this.props.getSectionListTitle(section) :
         section;
 
-      const textStyle = this.props.data[section].length ?
+      const textStyle = this.props.data[section] && this.props.data[section].length ?
         styles.text :
         styles.inactivetext;
 
@@ -118,22 +120,13 @@ export default class SectionList extends Component {
           <Text style={[textStyle, this.props.fontStyle]}>{title}</Text>
         </View>;
 
-      //if(index){
+
         return (
           <View key={index} ref={'sectionItem' + index} pointerEvents="none">
             {child}
           </View>
         );
-      //}
-      //else{
-      //  return (
-      //    <View key={index} ref={'sectionItem' + index} pointerEvents="none"
-      //          onLayout={e => {console.log(e.nativeEvent.layout)}}>
-      //      {child}
-      //    </View>
-      //  );
-      //
-      //}
+
     });
 
     return (
@@ -196,8 +189,6 @@ const styles = StyleSheet.create({
     alignItems:'flex-end',
     justifyContent:'flex-start',
     right: 5,
-    top: 0,
-    bottom: 0
   },
 
   item: {

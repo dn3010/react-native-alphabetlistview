@@ -8,6 +8,8 @@ import ReactNative, {
   StyleSheet,
   View,
   NativeModules,
+  Animated,
+  Dimensions
 } from 'react-native';
 import merge from 'merge';
 
@@ -27,7 +29,9 @@ export default class SelectableSectionsListView extends Component {
         rowHasChanged: (row1, row2) => row1 !== row2,
         sectionHeaderHasChanged: (prev, next) => prev !== next
       }),
-      offsetY: 0
+      offsetY: 0,
+      fadeAnim: new Animated.Value(0),
+      marginRightAnimation: new Animated.Value(0)
     };
 
     this.renderFooter = this.renderFooter.bind(this);
@@ -52,15 +56,13 @@ export default class SelectableSectionsListView extends Component {
   }
 
   componentDidMount() {
-    // push measuring into the next tick
-    setTimeout(() => {
-      UIManager.measure(ReactNative.findNodeHandle(this.refs.view), (x,y,w,h) => {
-        this.containerHeight = h;
-        if (this.props.contentInset && this.props.data && this.props.data.length > 0) {
-          this.scrollToSection(Object.keys(this.props.data)[0]);
-        }
-      });
-    }, 0);
+    // This changed
+    UIManager.measure(ReactNative.findNodeHandle(this.refs.view), (x,y,w,h) => {
+      this.containerHeight = h;
+      if (this.props.contentInset && this.props.data && this.props.data.length > 0) {
+        this.scrollToSection(Object.keys(this.props.data)[0]);
+      }
+    });
   }
 
   componentWillReceiveProps(nextProps) {
@@ -192,6 +194,11 @@ export default class SelectableSectionsListView extends Component {
 
   onScroll(e) {
     const offsetY = e.nativeEvent.contentOffset.y;
+    const contentHeight = e.nativeEvent.contentSize.height;
+
+    this.fade(false);
+    this.marginRight(false);
+
     if (this.props.updateScrollState) {
       this.setState({
         offsetY
@@ -209,6 +216,27 @@ export default class SelectableSectionsListView extends Component {
     }
   }
 
+  fade(out) {
+    Animated.timing(
+      this.state.fadeAnim,
+      {
+        toValue: out ? 0 : 1,
+        delay: 50,
+        duration: 100,
+      }
+    ).start();
+  }
+
+  marginRight(active) {
+    Animated.timing(
+      this.state.marginRightAnimation,
+      {
+        toValue: active ? 0 : 1,
+        duration: 100,
+      }
+    ).start();
+  }
+
   render() {
     const { data } = this.props;
     const dataIsArray = Array.isArray(data);
@@ -216,6 +244,13 @@ export default class SelectableSectionsListView extends Component {
     let renderSectionHeader;
     let dataSource;
     let sections = Object.keys(data);
+    const alphabet = ('ABCDEFGHIJKLMNOPQRSTUVWXYZ#').split('');
+    let { fadeAnim } = this.state;
+
+    const paddingRight = this.state.marginRightAnimation.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 15]
+    })
 
     if (typeof(this.props.compareFunction) === "function") {
       sections = sections.sort(this.props.compareFunction);
@@ -228,11 +263,12 @@ export default class SelectableSectionsListView extends Component {
         <SectionList
           style={this.props.sectionListStyle}
           onSectionSelect={this.scrollToSection}
-          sections={sections}
+          sections={alphabet}
           data={data}
           getSectionListTitle={this.props.getSectionListTitle}
           component={this.props.sectionListItem}
           fontStyle={this.props.sectionListFontStyle}
+          showsVerticalScrollIndicator={false}
         /> :
         null;
 
@@ -262,11 +298,27 @@ export default class SelectableSectionsListView extends Component {
 
     return (
       <View ref="view" style={[styles.container, this.props.style]}>
-        <ListView
-          ref="listview"
-          {...props}
-        />
-        {sectionList}
+        <Animated.View style={{flex:1, paddingRight}}>
+          <ListView
+            ref="listview"
+            showsVerticalScrollIndicator={false}
+            {...props}
+          />
+        </Animated.View>
+        <Animated.View
+          style={[{opacity: fadeAnim
+                 , position:'absolute'
+                 , right:0
+                 , width:30
+                 , top:0
+                 , bottom:0
+                 , justifyContent:'center'
+                 , alignItems:'center'
+                }]
+              }
+        >
+          {sectionList}
+      </Animated.View>
       </View>
     );
   }
