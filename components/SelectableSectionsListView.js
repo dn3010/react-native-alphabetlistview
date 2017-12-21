@@ -28,10 +28,9 @@ export default class SelectableSectionsListView extends Component {
       dataSource: new ListView.DataSource({
         rowHasChanged: (row1, row2) => row1 !== row2,
         sectionHeaderHasChanged: (prev, next) => prev !== next
-      }),
-      offsetY: 0,
-      fadeAnim: new Animated.Value(0),
-      marginRightAnimation: new Animated.Value(0)
+      })
+    , offsetY: 0
+    , fadeAnim: new Animated.Value(0)
     };
 
     this.renderFooter = this.renderFooter.bind(this);
@@ -42,10 +41,13 @@ export default class SelectableSectionsListView extends Component {
     this.onScroll = this.onScroll.bind(this);
     this.onScrollAnimationEnd = this.onScrollAnimationEnd.bind(this);
     this.scrollToSection = this.scrollToSection.bind(this);
+    this.fade = this.fade.bind(this);
 
-    // used for dynamic scrolling
-    // always the first cell of a section keyed by section id
     this.cellTagMap = {};
+
+    this.isScrolling = null;
+    this.searchVisible = false;
+
     this.sectionTagMap = {};
     this.updateTagInCellMap = this.updateTagInCellMap.bind(this);
     this.updateTagInSectionMap = this.updateTagInSectionMap.bind(this);
@@ -56,7 +58,6 @@ export default class SelectableSectionsListView extends Component {
   }
 
   componentDidMount() {
-    // This changed
     UIManager.measure(ReactNative.findNodeHandle(this.refs.view), (x,y,w,h) => {
       this.containerHeight = h;
       if (this.props.contentInset && this.props.data && this.props.data.length > 0) {
@@ -134,7 +135,6 @@ export default class SelectableSectionsListView extends Component {
         this.refs.listview.scrollTo({ x:0, y, animated: true });
       });
     }
-
     this.props.onScrollToSection && this.props.onScrollToSection(section);
   }
 
@@ -193,11 +193,22 @@ export default class SelectableSectionsListView extends Component {
   }
 
   onScroll(e) {
+
     const offsetY = e.nativeEvent.contentOffset.y;
     const contentHeight = e.nativeEvent.contentSize.height;
 
+    const _this = this;
+
+    clearTimeout(this.isScrolling);
+
+    this.isScrolling = setTimeout(function() {
+      _this.searchVisible = false;
+      _this.fade(true);
+    }, 2000);
+
     this.fade(false);
-    this.marginRight(false);
+
+    this.searchVisible = true;
 
     if (this.props.updateScrollState) {
       this.setState({
@@ -217,21 +228,12 @@ export default class SelectableSectionsListView extends Component {
   }
 
   fade(out) {
+    !this.searchVisible &&
     Animated.timing(
       this.state.fadeAnim,
       {
         toValue: out ? 0 : 1,
         delay: 50,
-        duration: 100,
-      }
-    ).start();
-  }
-
-  marginRight(active) {
-    Animated.timing(
-      this.state.marginRightAnimation,
-      {
-        toValue: active ? 0 : 1,
         duration: 100,
       }
     ).start();
@@ -246,11 +248,6 @@ export default class SelectableSectionsListView extends Component {
     let sections = Object.keys(data);
     const alphabet = ('ABCDEFGHIJKLMNOPQRSTUVWXYZ#').split('');
     let { fadeAnim } = this.state;
-
-    const paddingRight = this.state.marginRightAnimation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 15]
-    })
 
     if (typeof(this.props.compareFunction) === "function") {
       sections = sections.sort(this.props.compareFunction);
@@ -298,27 +295,30 @@ export default class SelectableSectionsListView extends Component {
 
     return (
       <View ref="view" style={[styles.container, this.props.style]}>
-        <Animated.View style={{flex:1, paddingRight}}>
+        <View style={{flex:1}}>
           <ListView
             ref="listview"
             showsVerticalScrollIndicator={false}
             {...props}
           />
-        </Animated.View>
-        <Animated.View
-          style={[{opacity: fadeAnim
-                 , position:'absolute'
-                 , right:0
-                 , width:30
-                 , top:0
-                 , bottom:0
-                 , justifyContent:'center'
-                 , alignItems:'center'
-                }]
-              }
-        >
-          {sectionList}
-      </Animated.View>
+        </View>
+        {
+          sections.length > 6 &&
+          <Animated.View
+            style={[{opacity: fadeAnim
+                   , position:'absolute'
+                   , right: 5
+                   , width: 60
+                   , top:0
+                   , bottom:0
+                   , justifyContent:'center'
+                   , alignItems:'center'
+                  }]
+                }
+          >
+            {sectionList}
+          </Animated.View>
+        }
       </View>
     );
   }
